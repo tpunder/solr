@@ -23,13 +23,17 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
+import org.apache.solr.cluster.api.SimpleMap;
+import org.apache.solr.common.ConfigNode;
 import org.apache.solr.common.MapSerializable;
 import org.apache.solr.common.SolrException;
 import org.apache.solr.common.util.DOMUtil;
 import org.apache.solr.common.util.StrUtils;
 
+import org.apache.solr.common.util.WrappedSimpleMap;
 import org.apache.solr.core.PluginInfo;
 
 import org.apache.solr.core.SolrConfig;
@@ -88,15 +92,13 @@ public class CacheConfig implements MapSerializable{
     this.regenerator = regenerator;
   }
 
-  public static Map<String, CacheConfig> getMultipleConfigs(SolrConfig solrConfig, String configPath) {
-    NodeList nodes = (NodeList) solrConfig.evaluate(configPath, XPathConstants.NODESET);
-    if (nodes == null || nodes.getLength() == 0) return new LinkedHashMap<>();
-    Map<String, CacheConfig> result = new HashMap<>(nodes.getLength());
-    for (int i = 0; i < nodes.getLength(); i++) {
-      Node node = nodes.item(i);
-      if ("true".equals(DOMUtil.getAttrOrDefault(node, "enabled", "true"))) {
-        CacheConfig config = getConfig(solrConfig, node.getNodeName(),
-                DOMUtil.toMap(node.getAttributes()), configPath);
+  public static Map<String, CacheConfig> getMultipleConfigs(SolrConfig solrConfig, String configPath, List<ConfigNode> nodes) {
+    if (nodes == null || nodes.size() == 0) return new LinkedHashMap<>();
+    Map<String, CacheConfig> result = new HashMap<>(nodes.size());
+    for (int i = 0; i < nodes.size(); i++) {
+      ConfigNode node = nodes.get(i);
+      if (node.boolAttr( "enabled", true)) {
+        CacheConfig config = getConfig(solrConfig, node.name(),node.attributes().asMap(), configPath);
         result.put(config.args.get(NAME), config);
       }
     }
@@ -105,15 +107,15 @@ public class CacheConfig implements MapSerializable{
 
 
   @SuppressWarnings({"unchecked"})
-  public static CacheConfig getConfig(SolrConfig solrConfig, String xpath) {
-    Node node = solrConfig.getNode(xpath, false);
-    if(node == null || !"true".equals(DOMUtil.getAttrOrDefault(node, "enabled", "true"))) {
+  public static CacheConfig getConfig(SolrConfig solrConfig, ConfigNode node, String xpath) {
+//    Node node = solrConfig.getNode(xpath, false);
+    if(node == null || !"true".equals(node.attributes().get( "enabled", "true"))) {
       Map<String, String> m = solrConfig.getOverlay().getEditableSubProperties(xpath);
       if(m==null) return null;
       List<String> parts = StrUtils.splitSmart(xpath, '/');
       return getConfig(solrConfig,parts.get(parts.size()-1) , Collections.EMPTY_MAP,xpath);
     }
-    return getConfig(solrConfig, node.getNodeName(),DOMUtil.toMap(node.getAttributes()), xpath);
+    return getConfig(solrConfig, node.name(),node.attributes().asMap(), xpath);
   }
 
 

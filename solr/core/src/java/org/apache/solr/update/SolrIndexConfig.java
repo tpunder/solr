@@ -31,6 +31,7 @@ import org.apache.lucene.index.MergePolicy;
 import org.apache.lucene.index.MergeScheduler;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.util.InfoStream;
+import org.apache.solr.common.ConfigNode;
 import org.apache.solr.common.util.NamedList;
 import org.apache.solr.common.util.Utils;
 import org.apache.solr.core.DirectoryFactory;
@@ -47,6 +48,7 @@ import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.util.SolrPluginUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.w3c.dom.Node;
 
 import static org.apache.solr.core.XmlConfigFile.assertWarnOrFail;
 
@@ -128,29 +130,29 @@ public class SolrIndexConfig implements MapSerializable {
 
     // sanity check: this will throw an error for us if there is more then one
     // config section
-    Object unused = solrConfig.getNode(prefix, false);
+//    Object unused =  solrConfig.getNode(prefix, false);
 
     // Assert that end-of-life parameters or syntax is not in our config.
     // Warn for luceneMatchVersion's before LUCENE_3_6, fail fast above
     assertWarnOrFail("The <mergeScheduler>myclass</mergeScheduler> syntax is no longer supported in solrconfig.xml. Please use syntax <mergeScheduler class=\"myclass\"/> instead.",
-        !((solrConfig.getNode(prefix + "/mergeScheduler", false) != null) && (solrConfig.get(prefix + "/mergeScheduler/@class", null) == null)),
+        !(solrConfig.__(prefix).__("mergeScheduler") != null && (solrConfig.__(prefix).attr("class", null) == null)),
         true);
     assertWarnOrFail("Beginning with Solr 7.0, <mergePolicy>myclass</mergePolicy> is no longer supported, use <mergePolicyFactory> instead.",
-        !((solrConfig.getNode(prefix + "/mergePolicy", false) != null) && (solrConfig.get(prefix + "/mergePolicy/@class", null) == null)),
+        !((solrConfig.__(prefix).__("mergePolicy") != null) && (solrConfig.__(prefix).__("mergePolicy").attr("class", null) == null)),
         true);
     assertWarnOrFail("The <luceneAutoCommit>true|false</luceneAutoCommit> parameter is no longer valid in solrconfig.xml.",
         solrConfig.get(prefix + "/luceneAutoCommit", null) == null,
         true);
 
-    useCompoundFile = solrConfig.getBool(prefix+"/useCompoundFile", def.useCompoundFile);
-    maxBufferedDocs = solrConfig.getInt(prefix+"/maxBufferedDocs", def.maxBufferedDocs);
-    ramBufferSizeMB = solrConfig.getDouble(prefix+"/ramBufferSizeMB", def.ramBufferSizeMB);
-    maxCommitMergeWaitMillis = solrConfig.getInt(prefix+"/maxCommitMergeWaitTime", def.maxCommitMergeWaitMillis);
+    useCompoundFile = solrConfig.__(prefix).__("useCompoundFile")._bool(def.useCompoundFile);
+    maxBufferedDocs = solrConfig.__(prefix).__("maxBufferedDocs")._int(def.maxBufferedDocs);
+    ramBufferSizeMB = solrConfig.__(prefix).__("ramBufferSizeMB").doubleVal(def.ramBufferSizeMB);
+    maxCommitMergeWaitMillis = solrConfig.__(prefix).__("maxCommitMergeWaitTime")._int(def.maxCommitMergeWaitMillis);
 
     // how do we validate the value??
-    ramPerThreadHardLimitMB = solrConfig.getInt(prefix+"/ramPerThreadHardLimitMB", def.ramPerThreadHardLimitMB);
+    ramPerThreadHardLimitMB = solrConfig.__(prefix).__("ramPerThreadHardLimitMB")._int(def.ramPerThreadHardLimitMB);
 
-    writeLockTimeout=solrConfig.getInt(prefix+"/writeLockTimeout", def.writeLockTimeout);
+    writeLockTimeout= solrConfig.__(prefix).__("writeLockTimeout")._int(def.writeLockTimeout);
     lockType=solrConfig.get(prefix+"/lockType", def.lockType);
 
     List<PluginInfo> infos = solrConfig.readPluginInfos(prefix + "/metrics", false, false);
@@ -166,10 +168,10 @@ public class SolrIndexConfig implements MapSerializable {
         getPluginInfo(prefix + "/mergePolicy", solrConfig, null) == null,
         true);
     assertWarnOrFail("Beginning with Solr 7.0, <maxMergeDocs> is no longer supported, configure it on the relevant <mergePolicyFactory> instead.",
-        solrConfig.getInt(prefix+"/maxMergeDocs", 0) == 0,
+        solrConfig.__(prefix).__("maxMergeDocs")._int(0) == 0,
         true);
     assertWarnOrFail("Beginning with Solr 7.0, <mergeFactor> is no longer supported, configure it on the relevant <mergePolicyFactory> instead.",
-        solrConfig.getInt(prefix+"/mergeFactor", 0) == 0,
+        solrConfig.__(prefix).__("mergeFactor")._int(0) == 0,
         true);
 
     String val = solrConfig.get(prefix + "/termIndexInterval", null);
@@ -177,9 +179,9 @@ public class SolrIndexConfig implements MapSerializable {
       throw new IllegalArgumentException("Illegal parameter 'termIndexInterval'");
     }
 
-    boolean infoStreamEnabled = solrConfig.getBool(prefix + "/infoStream", false);
+    boolean infoStreamEnabled = solrConfig.__(prefix).__("infoStream")._bool(false);
     if(infoStreamEnabled) {
-      String infoStreamFile = solrConfig.get(prefix + "/infoStream/@file", null);
+      String infoStreamFile = solrConfig.__(prefix).__("infoStream").attr("file") ;
       if (infoStreamFile == null) {
         log.info("IndexWriter infoStream solr logging is enabled");
         infoStream = new LoggingInfoStream();
@@ -187,10 +189,11 @@ public class SolrIndexConfig implements MapSerializable {
         throw new IllegalArgumentException("Remove @file from <infoStream> to output messages to solr's logfile");
       }
     }
-    mergedSegmentWarmerInfo = getPluginInfo(prefix + "/mergedSegmentWarmer", solrConfig, def.mergedSegmentWarmerInfo);
+    ConfigNode warmerInfo = solrConfig.__(prefix).__("mergedSegmentWarmer");
+    mergedSegmentWarmerInfo = warmerInfo==null? def.mergedSegmentWarmerInfo : new PluginInfo(warmerInfo, "[solrconfig.xml] mergedSegmentWarmer" , false, false);
 
     assertWarnOrFail("Beginning with Solr 5.0, <checkIntegrityAtMerge> option is no longer supported and should be removed from solrconfig.xml (these integrity checks are now automatic)",
-        (null == solrConfig.getNode(prefix + "/checkIntegrityAtMerge", false)),
+        (null == solrConfig.__(prefix).__( "checkIntegrityAtMerge")),
         true);
   }
 

@@ -19,11 +19,15 @@ package org.apache.solr.common;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.apache.solr.cluster.api.SimpleMap;
+import org.apache.solr.common.util.WrappedSimpleMap;
 
 /**
  * A generic interface that represents a config file, mostly XML
@@ -52,6 +56,46 @@ public interface ConfigNode {
   default ConfigNode child(String name) {
     return child(null, name);
   }
+
+  /**
+   * Child by name or return an empty node if null
+   */
+  default ConfigNode __(String name) {
+    ConfigNode child = child(null, name);
+    return child == null? EMPTY: child;
+  }
+
+  default ConfigNode child(List<String> path) {
+    ConfigNode node = this;
+    for (String s : path) {
+      node = node.child(s);
+      if (node == null) break;
+    }
+    return node;
+  }
+
+  default ConfigNode child(String name, Supplier<RuntimeException> err) {
+    ConfigNode n = child(name);
+    if(n == null) throw err.get();
+    return n;
+  }
+
+  default boolean _bool(boolean def) { return __bool(textValue(),def); }
+  default int _int(int def) { return __int(textValue(), def); }
+  default String attr(String name, String def) { return __txt(attributes().get(name), def);}
+  default String attr(String name) { return attributes().get(name);}
+  default String requiredStrAttr(String name, Supplier<RuntimeException> err) {
+    if(attributes().get(name) == null && err != null) throw err.get();
+    return attributes().get(name);
+  }
+  default int intAttr(String name, int def) { return __int(attributes().get(name), def); }
+  default boolean boolAttr(String name, boolean def){ return __bool(attributes().get(name), def); }
+  default String txt(String def) { return textValue() == null ? def : textValue();}
+  default double doubleVal(double def){ return __double(textValue(), def); }
+  default boolean __bool(Object v, boolean def) { return v == null ? def : Boolean.parseBoolean(v.toString()); }
+  default String __txt(Object v, String def) { return v == null ? def : v.toString(); }
+  default int __int(Object v, int def) { return v==null? def: Integer.parseInt(v.toString()); }
+  default double __double(Object v, double def) { return v == null ? def: Double.parseDouble(v.toString()); }
 
   /**Iterate through child nodes with the name and return the first child that matches
    */
@@ -99,6 +143,39 @@ public interface ConfigNode {
    * @param fun consume the node and return true to continue or false to abort
    */
   void forEachChild(Function<ConfigNode, Boolean> fun);
+
+  ConfigNode EMPTY = new ConfigNode() {
+    @Override
+    public String name() {
+      return null;
+    }
+
+    @Override
+    public String textValue() {
+      return null;
+    }
+
+    @Override
+    public SimpleMap<String> attributes() {
+      return empty_attrs;
+    }
+
+    @Override
+    public ConfigNode child(String name) {
+      return null;
+    }
+
+    @Override
+    public ConfigNode __(String name) {
+      return EMPTY;
+    }
+
+    @Override
+    public void forEachChild(Function<ConfigNode, Boolean> fun) {
+
+    }
+  } ;
+  SimpleMap<String> empty_attrs = new WrappedSimpleMap<>(Collections.emptyMap());
 
 
 }
