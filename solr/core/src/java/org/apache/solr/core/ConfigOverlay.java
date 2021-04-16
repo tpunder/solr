@@ -191,6 +191,7 @@ public class ConfigOverlay implements MapSerializable {
     return isEditable(isXpath, hierarchy, StrUtils.splitSmart(path, isXpath ? '/' : '.'));
   }
 
+  @SuppressWarnings("rawtypes")
   private static Class isEditable(boolean isXpath, List<String> hierarchy, List<String> parts) {
     Object obj = editable_prop_map;
     for (int i = 0; i < parts.size(); i++) {

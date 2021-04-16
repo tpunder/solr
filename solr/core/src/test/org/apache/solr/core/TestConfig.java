@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Predicate;
 
 import org.apache.lucene.index.ConcurrentMergeScheduler;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -91,13 +92,13 @@ public class TestConfig extends SolrTestCaseJ4 {
     s = solrConfig.__("propTest").attr("attr2", "default");
     assertEquals("default-from-config", s);
 
-    s = solrConfig.get("propTest[@attr2='default-from-config']", "default");
-    assertEquals("prefix-proptwo-suffix", s);
 
-    List<ConfigNode> nl = solrConfig.root.children("propTest");
+    assertEquals("prefix-proptwo-suffix", solrConfig.__("propTest",
+        it -> "default-from-config".equals(it.attr("attr2"))).txt());
+
+    List<ConfigNode> nl = solrConfig.root.children ("propTest");
     assertEquals(1, nl.size());
     assertEquals("prefix-proptwo-suffix", nl.get(0).textValue());
-
 
     assertEquals("prefix-proptwo-suffix", solrConfig.__("propTest"));
   }
